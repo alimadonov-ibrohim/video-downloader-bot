@@ -1,22 +1,27 @@
 import asyncio
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.constants import ChatAction
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from downloader import MAX_FILE_SIZE, SUPPORTED_RE, URL_REGEX, cleanup, download_video
 
-load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN", "")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
+TOKEN = os.getenv("BOT_TOKEN", "")
+WEBHOOK_PATH = "/api/webhook"
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+application = Application.builder().token(TOKEN).build()
+bot = application.bot
 
 START_TEXT = (
     "Assalomu alaykum! 👋\n\n"
@@ -30,21 +35,9 @@ START_TEXT = (
     "https://www.youtube.com/watch?v=..."
 )
 
-HELP_TEXT = (
-    "Botdan foydalanish:\n\n"
-    "1. Video yuklamoqchi bo'lgan post havolasini nusxalang\n"
-    "2. Shu yerda botga yuboring\n"
-    "3. Bot videoni yuklab, sizga qaytaradi\n\n"
-    "Eslatma: Telegram botlari uchun maksimal fayl hajmi 50 MB."
-)
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(START_TEXT)
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(HELP_TEXT)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -98,16 +91,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await loop.run_in_executor(None, cleanup, path)
 
 
-def main() -> None:
-    app = Application.builder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(MessageHandler(filters.TEXT | filters.CAPTION, handle_message))
-
-    logger.info("Bot ishga tushdi...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT | filters.CAPTION, handle_message))
 
 
-if __name__ == "__main__":
-    main()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    url = os.getenv("WEBHOOK_URL") or f"https://{os.getenv('VERCEL_PROJECT_PRODUCTION_URL')}{WEBHOOK_PATH}"
+    await bot.set_webhook(url)
+    logger.info("Webhook set: %s", url)
+    yield
+    await application.shutdown()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/")
+async def index():
+    return {"status": "ok", "bot": "video downloader"}
+
+
+@app.post(WEBHOOK_PATH)
+async def webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, bot)
+    await application.process_update(update)
+    return {"ok": True}
