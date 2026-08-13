@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.pyc
+.env
+.env.local
+downloads
+bin
+.idea
+.vercel
+.git
+.gitignore
+README.md

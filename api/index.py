@@ -20,8 +20,8 @@ WEBHOOK_PATH = "/api/webhook"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-application = Application.builder().token(TOKEN).build()
-bot = application.bot
+telegram_app = Application.builder().token(TOKEN).build()
+bot = telegram_app.bot
 
 START_TEXT = (
     "Assalomu alaykum! 👋\n\n"
@@ -91,17 +91,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await loop.run_in_executor(None, cleanup, path)
 
 
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT | filters.CAPTION, handle_message))
+telegram_app.add_handler(CommandHandler("start", start))
+telegram_app.add_handler(MessageHandler(filters.TEXT | filters.CAPTION, handle_message))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await telegram_app.initialize()
     url = os.getenv("WEBHOOK_URL") or f"https://{os.getenv('VERCEL_PROJECT_PRODUCTION_URL')}{WEBHOOK_PATH}"
     await bot.set_webhook(url)
     logger.info("Webhook set: %s", url)
     yield
-    await application.shutdown()
+    await telegram_app.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -116,5 +117,6 @@ async def index():
 async def webhook(request: Request):
     data = await request.json()
     update = Update.de_json(data, bot)
-    await application.process_update(update)
+    await telegram_app.initialize()
+    await telegram_app.process_update(update)
     return {"ok": True}
