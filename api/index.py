@@ -123,12 +123,20 @@ async def webhook(request: Request):
 @app.get("/api/debug")
 async def debug_download(url: str):
     path = None
+    cookie = os.path.join(tempfile.gettempdir(), "downloads", "cookies.txt")
+    diag = {
+        "cookie_exists": os.path.exists(cookie),
+        "cookie_len": os.path.getsize(cookie) if os.path.exists(cookie) else 0,
+        "cookie_head": open(cookie, "rb").read(30).decode(errors="replace") if os.path.exists(cookie) else "",
+        "env_has_b64": bool(os.getenv("YT_COOKIES_B64")),
+        "env_b64_len": len(os.getenv("YT_COOKIES_B64") or ""),
+    }
     try:
         path = await asyncio.get_running_loop().run_in_executor(None, download_video, url)
         size = os.path.getsize(path)
-        return {"ok": True, "size_mb": round(size / 1024 / 1024, 2), "region": os.getenv("VERCEL_REGION")}
+        return {"ok": True, "size_mb": round(size / 1024 / 1024, 2), "region": os.getenv("VERCEL_REGION"), "diag": diag}
     except Exception as e:
-        return {"ok": False, "error": str(e)[:1200], "region": os.getenv("VERCEL_REGION")}
+        return {"ok": False, "error": str(e)[:1200], "region": os.getenv("VERCEL_REGION"), "diag": diag}
     finally:
         if path:
             await asyncio.get_running_loop().run_in_executor(None, cleanup, path)
