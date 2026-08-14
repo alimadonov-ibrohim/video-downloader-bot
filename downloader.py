@@ -56,6 +56,18 @@ def ydl_opts(player_client: str = None):
     if player_client:
         opts["extractor_args"] = {"youtube": {"player_client": [player_client]}}
     cookies = os.getenv("YT_COOKIES")
+    if not cookies:
+        b64 = os.getenv("YT_COOKIES_B64")
+        if b64:
+            try:
+                import base64
+
+                cookies = os.path.join(DOWNLOAD_DIR, "cookies.txt")
+                if not os.path.exists(cookies):
+                    with open(cookies, "wb") as f:
+                        f.write(base64.b64decode(b64))
+            except Exception:
+                cookies = None
     if cookies and os.path.exists(cookies):
         opts["cookiefile"] = cookies
     ffmpeg = get_ffmpeg_path()
