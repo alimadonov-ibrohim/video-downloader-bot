@@ -10,6 +10,8 @@ MAX_FILE_SIZE = 50 * 1024 * 1024
 DOWNLOAD_DIR = os.path.join(tempfile.gettempdir(), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+YOUTUBE_CLIENTS = ("tv", "android", "ios", "web")
+
 SUPPORTED_DOMAINS = (
     "youtube.com",
     "youtu.be",
@@ -40,7 +42,7 @@ def get_ffmpeg_path():
         return None
 
 
-def ydl_opts():
+def ydl_opts(player_client: str = None):
     opts = {
         "outtmpl": os.path.join(DOWNLOAD_DIR, f"{uuid.uuid4().hex[:8]}_%(id)s.%(ext)s"),
         "noplaylist": True,
@@ -51,6 +53,11 @@ def ydl_opts():
         "retries": 3,
         "nocheckcertificate": True,
     }
+    if player_client:
+        opts["extractor_args"] = {"youtube": {"player_client": [player_client]}}
+    cookies = os.getenv("YT_COOKIES")
+    if cookies and os.path.exists(cookies):
+        opts["cookiefile"] = cookies
     ffmpeg = get_ffmpeg_path()
     if ffmpeg:
         opts["format"] = (
@@ -65,10 +72,20 @@ def ydl_opts():
 
 
 def download_video(url: str) -> str:
+    errors = []
+    for client in [None, *YOUTUBE_CLIENTS]:
+        try:
+            return _download_with_fallback(url, client)
+        except Exception as e:
+            errors.append(f"[{client or 'default'}] {e}")
+    raise RuntimeError(" | ".join(errors))
+
+
+def _download_with_fallback(url: str, client: str) -> str:
     try:
-        return _download(url, ydl_opts())
+        return _download(url, ydl_opts(client))
     except Exception as merge_err:
-        simple = ydl_opts()
+        simple = ydl_opts(client)
         simple["format"] = "best[filesize<50M]/best"
         simple.pop("merge_output_format", None)
         simple.pop("ffmpeg_location", None)
