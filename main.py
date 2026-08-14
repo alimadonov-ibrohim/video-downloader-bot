@@ -85,12 +85,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         await status_msg.delete()
     except Exception as e:
-        logger.error("Download error: %s", e)
+        logger.error("Download error: %s", e, exc_info=True)
         await status_msg.edit_text(
-            "❌ Videoni yuklab bo'lmadi. Sabablari:\n"
-            "• Post shaxsiy (private) bo'lishi mumkin\n"
-            "• Havola noto'g'ri bo'lishi mumkin\n"
-            "• Sayt botni bloklagan bo'lishi mumkin\n\n"
+            "❌ Videoni yuklab bo'lmadi.\n\n"
+            f"🔧 Texnik xato: {type(e).__name__}: {e}\n\n"
             "Iltimos, boshqa havola bilan urinib ko'ring."
         )
     finally:

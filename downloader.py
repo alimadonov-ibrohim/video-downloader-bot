@@ -1,3 +1,4 @@
+import glob
 import os
 import re
 import tempfile
@@ -64,10 +65,37 @@ def ydl_opts():
 
 
 def download_video(url: str) -> str:
-    opts = ydl_opts()
+    try:
+        return _download(url, ydl_opts())
+    except Exception as merge_err:
+        simple = ydl_opts()
+        simple["format"] = "best[filesize<50M]/best"
+        simple.pop("merge_output_format", None)
+        simple.pop("ffmpeg_location", None)
+        try:
+            return _download(url, simple)
+        except Exception as simple_err:
+            raise RuntimeError(
+                f"merge: {merge_err} | simple: {simple_err}"
+            ) from simple_err
+
+
+def _download(url: str, opts: dict) -> str:
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
-        return ydl.prepare_filename(info)
+        for dl in info.get("requested_downloads") or []:
+            fp = dl.get("filepath")
+            if fp and os.path.exists(fp):
+                return fp
+        path = ydl.prepare_filename(info)
+        if os.path.exists(path):
+            return path
+        template = opts["outtmpl"].replace("%(id)s", info.get("id") or "*")
+        template = template.replace("%(ext)s", "*")
+        matches = glob.glob(template)
+        if matches:
+            return max(matches, key=os.path.getsize)
+        raise FileNotFoundError(f"Yuklangan fayl topilmadi: {path}")
 
 
 def cleanup(path: str):
