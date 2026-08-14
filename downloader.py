@@ -1,6 +1,7 @@
 import glob
 import os
 import re
+import shutil
 import tempfile
 import uuid
 
@@ -73,6 +74,12 @@ def ydl_opts(player_client: str = None):
             except Exception:
                 cookies = None
     if cookies and os.path.exists(cookies):
+        try:
+            writable = os.path.join(DOWNLOAD_DIR, "cookies.txt")
+            shutil.copy2(cookies, writable)
+            cookies = writable
+        except OSError:
+            pass
         opts["cookiefile"] = cookies
     ffmpeg = get_ffmpeg_path()
     if ffmpeg:
