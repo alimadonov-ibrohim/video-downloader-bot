@@ -57,6 +57,10 @@ def ydl_opts(player_client: str = None):
         opts["extractor_args"] = {"youtube": {"player_client": [player_client]}}
     cookies = os.getenv("YT_COOKIES")
     if not cookies:
+        local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "youtube_cookies.txt")
+        if os.path.exists(local):
+            cookies = local
+    if not cookies:
         b64 = os.getenv("YT_COOKIES_B64")
         if b64:
             try:
