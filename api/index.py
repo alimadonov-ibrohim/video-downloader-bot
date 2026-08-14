@@ -118,3 +118,17 @@ async def webhook(request: Request):
     await telegram_app.initialize()
     await telegram_app.process_update(update)
     return {"ok": True}
+
+
+@app.get("/api/debug")
+async def debug_download(url: str):
+    path = None
+    try:
+        path = await asyncio.get_running_loop().run_in_executor(None, download_video, url)
+        size = os.path.getsize(path)
+        return {"ok": True, "size_mb": round(size / 1024 / 1024, 2)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:1200]}
+    finally:
+        if path:
+            await asyncio.get_running_loop().run_in_executor(None, cleanup, path)
