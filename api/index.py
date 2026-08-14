@@ -126,9 +126,9 @@ async def debug_download(url: str):
     try:
         path = await asyncio.get_running_loop().run_in_executor(None, download_video, url)
         size = os.path.getsize(path)
-        return {"ok": True, "size_mb": round(size / 1024 / 1024, 2)}
+        return {"ok": True, "size_mb": round(size / 1024 / 1024, 2), "region": os.getenv("VERCEL_REGION")}
     except Exception as e:
-        return {"ok": False, "error": str(e)[:1200]}
+        return {"ok": False, "error": str(e)[:1200], "region": os.getenv("VERCEL_REGION")}
     finally:
         if path:
             await asyncio.get_running_loop().run_in_executor(None, cleanup, path)

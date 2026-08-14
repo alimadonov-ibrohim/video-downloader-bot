@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "regions": ["fra1"],
+  "regions": ["sin1"],
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "runtime": "@vercel/python@6.56.2"
+      "runtime": "@vercel/python@6.56.2",
+      "regions": ["sin1"]
     }
   },
   "routes": [
